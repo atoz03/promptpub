@@ -1,0 +1,32 @@
+{
+  "name": "promptpub",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"bun run dev:api\" \"bun run dev:web\"",
+    "dev:api": "bun run --watch src/index.ts",
+    "dev:web": "cd frontend && bun run dev",
+    "start": "bun run src/index.ts",
+    "build": "cd frontend && bun run build",
+    "db:migrate": "bun run src/db/migrate.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "concurrently": "^9.2.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.4.6",
+    "drizzle-orm": "^0.44.7",
+    "hono": "^4.10.7",
+    "jose": "^6.1.2",
+    "nanoid": "^5.1.6",
+    "zod": "^4.1.13"
+  }
+}
