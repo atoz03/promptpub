@@ -39,8 +39,8 @@ export const useStore = create<AppState>()(
       user: null,
       workspaces: [],
       currentWorkspaceId: null,
-      isAuthenticated: !!api.getToken(),
-      isLoading: false,
+      isAuthenticated: false,
+      isLoading: !!api.getToken(),
 
       setUser: (user) => set({ user, isAuthenticated: !!user }),
 

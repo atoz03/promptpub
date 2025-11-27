@@ -18,10 +18,10 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, loadUser } = useStore();
 
   useEffect(() => {
-    if (!isAuthenticated && !isLoading) {
+    if (!isAuthenticated) {
       loadUser();
     }
-  }, []);
+  }, [isAuthenticated, loadUser]);
 
   if (isLoading) {
     return (
@@ -39,8 +39,25 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useStore();
+  const { isAuthenticated, isLoading, loadUser } = useStore();
 
+  useEffect(() => {
+    // 如果有 token 但未认证，尝试加载用户信息
+    if (!isAuthenticated && isLoading) {
+      loadUser();
+    }
+  }, [isAuthenticated, isLoading, loadUser]);
+
+  // 如果正在加载，显示加载状态
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  // 如果已认证，跳转到首页
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
   }

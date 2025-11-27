@@ -184,14 +184,27 @@ export function PromptEditPage() {
   };
 
   const modelOptions = [
-    'GPT-4',
-    'GPT-4 Turbo',
-    'GPT-3.5 Turbo',
-    'Claude 3 Opus',
-    'Claude 3 Sonnet',
-    'Claude 3 Haiku',
-    'Gemini Pro',
+    // OpenAI GPT (2025年最新)
+    'GPT-5',
+    'GPT-4.1',
+    'GPT-4o',
+    'o3',
+    'o4-mini',
+
+    // Anthropic Claude (2025年最新)
+    'Claude Sonnet 4.5',
+    'Claude Opus 4',
+    'Claude Sonnet 4',
+
+    // Google Gemini (2025年最新)
+    'Gemini 3 Pro',
+    'Gemini 2.5 Pro',
+    'Gemini 2.5 Flash',
+
+    // 其他主流模型
     'Llama 3',
+    'DeepSeek',
+    'Grok 4',
   ];
 
   if (loading) {
