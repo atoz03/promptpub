@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useStore } from './store';
 import { Layout } from './components/Layout';
+import { ToastProvider } from './components/Toast';
 import { LoginPage } from './pages/Login';
 import { RegisterPage } from './pages/Register';
 import { DashboardPage } from './pages/Dashboard';
@@ -68,49 +69,51 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          {/* 公开路由 */}
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <LoginPage />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <PublicRoute>
-                <RegisterPage />
-              </PublicRoute>
-            }
-          />
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* 公开路由 */}
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <LoginPage />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <PublicRoute>
+                  <RegisterPage />
+                </PublicRoute>
+              }
+            />
 
-          {/* 需要认证的路由 */}
-          <Route
-            element={
-              <PrivateRoute>
-                <Layout />
-              </PrivateRoute>
-            }
-          >
-            <Route index element={<DashboardPage />} />
-            <Route path="prompts">
-              <Route index element={<PromptListPage />} />
-              <Route path="new" element={<PromptEditPage />} />
-              <Route path=":id" element={<PromptDetailPage />} />
-              <Route path=":id/edit" element={<PromptEditPage />} />
+            {/* 需要认证的路由 */}
+            <Route
+              element={
+                <PrivateRoute>
+                  <Layout />
+                </PrivateRoute>
+              }
+            >
+              <Route index element={<DashboardPage />} />
+              <Route path="prompts">
+                <Route index element={<PromptListPage />} />
+                <Route path="new" element={<PromptEditPage />} />
+                <Route path=":id" element={<PromptDetailPage />} />
+                <Route path=":id/edit" element={<PromptEditPage />} />
+              </Route>
+              <Route path="categories" element={<CategoriesPage />} />
+              <Route path="tags" element={<TagsPage />} />
             </Route>
-            <Route path="categories" element={<CategoriesPage />} />
-            <Route path="tags" element={<TagsPage />} />
-          </Route>
 
-          {/* 404 */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
+            {/* 404 */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }

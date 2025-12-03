@@ -1,21 +1,46 @@
-# PromptPub
+<div align="center">
+  <img src="frontend/public/logo.svg" alt="PromptPub Logo" width="200" />
+  <h1>PromptPub</h1>
+  <p>提示词管理与发布平台 - 为个人与团队提供统一的「提示词资产管理、协作、发布与复用」平台</p>
 
-提示词管理与发布平台 - 为个人与团队提供统一的「提示词资产管理、协作、发布与复用」平台。
+  ![开发进度](https://img.shields.io/badge/开发进度-95%25-brightgreen)
+  ![License](https://img.shields.io/badge/license-MIT-blue)
+  ![Bun](https://img.shields.io/badge/runtime-Bun-orange)
+</div>
 
-## 功能特性
+---
+
+## ✨ 功能特性
 
 ### 核心功能
 
 - **提示词管理**: 创建、编辑、删除、归档提示词模板
 - **版本控制**: 自动记录历史版本，支持版本对比和一键回滚
+  - ✅ **版本 Diff 对比**: 可视化对比两个版本的差异（新增/删除行高亮显示）
+  - ✅ 基于 LCS 算法的精确行级对比
+  - ✅ 显示变更统计（+新增/-删除）
 - **变量系统**: 定义可替换变量，支持实时预览
+  - ✅ **变量预览替换**: 填写变量值后实时预览最终内容
+  - ✅ 一键复制预览内容
+  - ✅ 渐变背景突出预览区域
 - **Token 统计**: 自动统计提示词 Token 数量，实时显示成本估算
 - **多模型支持**: 支持标记提示词的适用模型（GPT-5、Claude Sonnet 4.5、Gemini 3 Pro 等）
 - **分类管理**: 多层级树形分类，灵活组织提示词
 - **标签系统**: 自定义颜色标签，快速筛选
 - **搜索过滤**: 全文搜索，按分类、标签、状态多维度筛选
+  - ✅ **全文搜索**: 支持搜索提示词标题、描述和正文内容
+  - ✅ SQL 子查询优化，高性能检索
 - **一键复制**: 快速复制提示词内容，自动记录使用次数
+  - ✅ **复制反馈优化**: 图标变化（Copy → Check）+ Toast 通知
+  - ✅ 2秒自动恢复
 - **导出功能**: 支持 JSON、Markdown、CSV 格式导出
+
+### UI/UX 增强
+
+- ✅ **Toast 通知系统**: 优雅的右下角 Toast 提示，替代原生 alert
+  - 滑入动画效果
+  - 3秒自动消失 + 可手动关闭
+  - 成功/错误状态颜色区分
 
 ### 协作功能
 
@@ -120,6 +145,19 @@ bun run start
 
 ---
 
+### 功能测试
+
+详细的功能测试指南请参考 [TESTING.md](TESTING.md)，包括：
+
+- ✅ 用户认证测试（注册/登录）
+- ✅ Toast 通知测试（各种场景）
+- ✅ 全文搜索测试（标题/正文搜索）
+- ✅ 版本对比测试（Diff 视图）
+- ✅ 变量预览测试（变量替换）
+- ✅ 一键复制优化测试（视觉反馈）
+
+---
+
 ### 命令对照表
 
 | 操作 | 开发模式 | 生产模式 |
@@ -141,7 +179,7 @@ promptpub/
 │   │   └── migrate.ts        # 数据库迁移
 │   ├── routes/               # API 路由
 │   │   ├── auth.ts           # 认证接口
-│   │   ├── prompts.ts        # 提示词接口
+│   │   ├── prompts.ts        # 提示词接口（含全文搜索）
 │   │   ├── categories.ts     # 分类接口
 │   │   ├── tags.ts           # 标签接口
 │   │   ├── workspaces.ts     # 工作空间接口
@@ -150,12 +188,21 @@ promptpub/
 │   │   └── auth.ts           # JWT 认证中间件
 │   └── index.ts              # 应用入口
 ├── frontend/                 # 前端源码
+│   ├── public/               # 静态资源
+│   │   ├── logo.svg          # 应用 Logo
+│   │   └── favicon.svg       # 浏览器图标
 │   └── src/
 │       ├── api/              # API 客户端
 │       ├── store/            # 状态管理
 │       ├── components/       # 通用组件
+│       │   ├── Toast.tsx     # Toast 通知组件
+│       │   └── VersionDiff.tsx  # 版本对比组件
 │       └── pages/            # 页面组件
+│           ├── PromptList.tsx   # 提示词列表（含搜索）
+│           └── PromptDetail.tsx # 提示词详情（含版本对比、变量预览）
 ├── data/                     # 数据库文件目录
+├── TESTING.md                # 功能测试指南
+├── PROGRESS.md               # 开发进度文档
 └── package.json
 ```
 
@@ -326,6 +373,30 @@ bun run start
   ```bash
   cd frontend && bun run build && cd ..
   ```
+
+## 开发进度
+
+当前进度：**95%**（详见 [PROGRESS.md](PROGRESS.md)）
+
+### v1.1.0 已完成（2025年）
+
+- ✅ Toast 通知系统（替代 alert）
+- ✅ 全文搜索（支持搜索提示词正文内容）
+- ✅ 版本对比 Diff 视图（基于 LCS 算法）
+- ✅ 变量预览替换功能
+- ✅ 一键复制优化（视觉反馈）
+- ✅ Logo 和 Favicon 设计
+
+### v1.0.0 核心功能（已完成）
+
+- ✅ 用户认证系统
+- ✅ 提示词 CRUD
+- ✅ 版本控制
+- ✅ 变量系统
+- ✅ 分类管理
+- ✅ 标签系统
+- ✅ 工作空间
+- ✅ 导出功能
 
 ## 后续规划
 

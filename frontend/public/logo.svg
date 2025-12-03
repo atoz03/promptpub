@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- 背景圆形渐变 -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0284c7;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e0f2fe;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- 背景圆 -->
+  <circle cx="100" cy="100" r="95" fill="url(#bgGrad)" />
+
+  <!-- 提示符号 ">" 和 文档图标 -->
+  <g transform="translate(100, 100)">
+    <!-- 左侧提示符 > -->
+    <path d="M -50 -35 L -20 -5 L -50 25"
+          fill="none"
+          stroke="white"
+          stroke-width="8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          opacity="0.9"/>
+
+    <!-- 右侧文档图标 -->
+    <g transform="translate(15, -35)">
+      <!-- 文档轮廓 -->
+      <rect x="0" y="0" width="40" height="55" rx="4"
+            fill="white" opacity="0.95"/>
+      <!-- 文档内容线条 -->
+      <line x1="8" y1="12" x2="32" y2="12"
+            stroke="#0284c7" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="8" y1="22" x2="32" y2="22"
+            stroke="#0284c7" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="8" y1="32" x2="25" y2="32"
+            stroke="#0284c7" stroke-width="2.5" stroke-linecap="round"/>
+      <!-- Pub 发布标记 -->
+      <circle cx="32" cy="45" r="8" fill="#22c55e"/>
+      <path d="M 28 45 L 30.5 47.5 L 36 42"
+            fill="none" stroke="white" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <!-- 底部文字 -->
+  <text x="100" y="175"
+        font-family="Arial, sans-serif"
+        font-size="20"
+        font-weight="bold"
+        text-anchor="middle"
+        fill="url(#textGrad)">
+    PromptPub
+  </text>
+</svg>

@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../store';
 import { api } from '../api/client';
+import { useToast } from '../components/Toast';
 import {
   Plus,
   Search,
   Filter,
   Copy,
+  Check,
   Eye,
   Edit,
   Trash2,
@@ -35,12 +37,14 @@ interface Category {
 
 export function PromptListPage() {
   const { currentWorkspaceId } = useStore();
+  const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 0 });
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const search = searchParams.get('search') || '';
   const categoryId = searchParams.get('category') || '';
@@ -100,13 +104,17 @@ export function PromptListPage() {
       // 记录使用
       await api.recordPromptUse(prompt.id, 'web');
 
+      // 显示复制成功动画
+      setCopiedId(prompt.id);
+      setTimeout(() => setCopiedId(null), 2000);
+
       // 刷新数据以更新使用次数
       loadData();
 
-      alert('已复制到剪贴板');
+      showToast('已复制到剪贴板', 'success');
     } catch (error) {
       console.error('Failed to copy:', error);
-      alert('复制失败');
+      showToast('复制失败', 'error');
     }
   };
 
@@ -116,9 +124,10 @@ export function PromptListPage() {
     try {
       await api.deletePrompt(id);
       loadData();
+      showToast('删除成功', 'success');
     } catch (error) {
       console.error('Failed to delete:', error);
-      alert('删除失败');
+      showToast('删除失败', 'error');
     }
   };
 
@@ -167,7 +176,7 @@ export function PromptListPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="搜索提示词..."
+                placeholder="搜索标题、描述或正文..."
                 defaultValue={search}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="input pl-10"
@@ -329,10 +338,18 @@ export function PromptListPage() {
                 <div className="flex items-center gap-2 ml-4">
                   <button
                     onClick={() => handleCopyPrompt(prompt)}
-                    className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                    className={`p-2 rounded-lg transition-colors ${
+                      copiedId === prompt.id
+                        ? 'text-green-600 bg-green-50'
+                        : 'text-gray-400 hover:text-primary-600 hover:bg-primary-50'
+                    }`}
                     title="复制提示词"
                   >
-                    <Copy className="w-5 h-5" />
+                    {copiedId === prompt.id ? (
+                      <Check className="w-5 h-5" />
+                    ) : (
+                      <Copy className="w-5 h-5" />
+                    )}
                   </button>
                   <Link
                     to={`/prompts/${prompt.id}`}

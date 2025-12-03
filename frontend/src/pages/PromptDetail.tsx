@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useToast } from '../components/Toast';
+import { VersionDiff } from '../components/VersionDiff';
 import {
   ArrowLeft,
   Copy,
+  Check,
   Edit,
   Trash2,
   Clock,
@@ -15,18 +18,28 @@ import {
   BarChart3,
   RotateCcw,
   Hash,
+  GitCompare,
+  Eye,
 } from 'lucide-react';
 import { countTokens, estimateCost } from '../utils/tokenCounter';
 
 export function PromptDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [prompt, setPrompt] = useState<any>(null);
   const [versions, setVersions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showVersions, setShowVersions] = useState(false);
   const [copied, setCopied] = useState(false);
   const [tokenCount, setTokenCount] = useState<number>(0);
+  // 版本对比相关状态
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedVersions, setSelectedVersions] = useState<string[]>([]);
+  const [showDiff, setShowDiff] = useState(false);
+  // 变量预览相关状态
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -66,8 +79,10 @@ export function PromptDetailPage() {
       await api.recordPromptUse(id!, 'web');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      showToast('已复制到剪贴板', 'success');
     } catch (error) {
       console.error('Failed to copy:', error);
+      showToast('复制失败', 'error');
     }
   };
 
@@ -76,10 +91,11 @@ export function PromptDetailPage() {
 
     try {
       await api.deletePrompt(id!);
+      showToast('删除成功', 'success');
       navigate('/prompts');
     } catch (error) {
       console.error('Failed to delete:', error);
-      alert('删除失败');
+      showToast('删除失败', 'error');
     }
   };
 
@@ -89,11 +105,65 @@ export function PromptDetailPage() {
     try {
       await api.rollbackPrompt(id!, versionId);
       loadPrompt();
-      alert('回滚成功');
+      showToast('回滚成功', 'success');
     } catch (error) {
       console.error('Failed to rollback:', error);
-      alert('回滚失败');
+      showToast('回滚失败', 'error');
     }
+  };
+
+  // 版本选择处理
+  const handleVersionSelect = (versionId: string) => {
+    if (selectedVersions.includes(versionId)) {
+      setSelectedVersions(selectedVersions.filter(v => v !== versionId));
+    } else if (selectedVersions.length < 2) {
+      setSelectedVersions([...selectedVersions, versionId]);
+    } else {
+      setSelectedVersions([selectedVersions[1], versionId]);
+    }
+  };
+
+  // 获取对比的版本数据
+  const getCompareVersions = () => {
+    const v1 = versions.find(v => v.id === selectedVersions[0]);
+    const v2 = versions.find(v => v.id === selectedVersions[1]);
+    if (!v1 || !v2) return null;
+    const sorted = [v1, v2].sort((a, b) =>
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    return { old: sorted[0], new: sorted[1] };
+  };
+
+  // 生成预览内容（替换变量）
+  const getPreviewContent = () => {
+    if (!currentVersion?.content) return '';
+    let content = currentVersion.content;
+    const vars = currentVersion.variables ? JSON.parse(currentVersion.variables) : [];
+
+    vars.forEach((v: any) => {
+      const value = variableValues[v.name] || v.defaultValue || `{${v.name}}`;
+      const regex = new RegExp(`\\{${v.name}\\}`, 'g');
+      content = content.replace(regex, value);
+    });
+
+    return content;
+  };
+
+  // 复制预览内容
+  const handleCopyPreview = async () => {
+    const previewContent = getPreviewContent();
+    try {
+      await navigator.clipboard.writeText(previewContent);
+      await api.recordPromptUse(id!, 'web');
+      showToast('预览内容已复制', 'success');
+    } catch (error) {
+      showToast('复制失败', 'error');
+    }
+  };
+
+  // 重置变量值
+  const resetVariables = () => {
+    setVariableValues({});
   };
 
   const handleExport = async (format: 'json' | 'markdown') => {
@@ -289,31 +359,75 @@ export function PromptDetailPage() {
             </div>
           </div>
 
-          {/* 变量说明 */}
+          {/* 变量预览 */}
           {variables.length > 0 && (
             <div className="card">
-              <div className="p-4 border-b border-gray-200">
-                <h2 className="font-semibold text-gray-900">变量说明</h2>
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="font-semibold text-gray-900">变量设置与预览</h2>
+                <div className="flex items-center gap-2">
+                  {Object.keys(variableValues).length > 0 && (
+                    <button
+                      onClick={resetVariables}
+                      className="text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      重置
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowPreview(!showPreview)}
+                    className={`btn btn-secondary text-xs py-1 px-2 ${showPreview ? 'bg-primary-50 text-primary-700' : ''}`}
+                  >
+                    <Eye className="w-3 h-3" />
+                    {showPreview ? '隐藏预览' : '显示预览'}
+                  </button>
+                </div>
               </div>
-              <div className="p-4">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-sm text-gray-500">
-                      <th className="pb-2">变量名</th>
-                      <th className="pb-2">说明</th>
-                      <th className="pb-2">默认值</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm">
-                    {variables.map((v: any, i: number) => (
-                      <tr key={i} className="border-t border-gray-100">
-                        <td className="py-2 font-mono text-primary-600">{`{${v.name}}`}</td>
-                        <td className="py-2 text-gray-600">{v.description || '-'}</td>
-                        <td className="py-2 text-gray-500">{v.defaultValue || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="p-4 space-y-4">
+                {/* 变量输入区域 */}
+                <div className="grid gap-3">
+                  {variables.map((v: any, i: number) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="w-28 flex-shrink-0">
+                        <span className="font-mono text-sm text-primary-600 bg-primary-50 px-2 py-1 rounded">
+                          {`{${v.name}}`}
+                        </span>
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          placeholder={v.defaultValue || `输入 ${v.name} 的值...`}
+                          value={variableValues[v.name] || ''}
+                          onChange={(e) =>
+                            setVariableValues({ ...variableValues, [v.name]: e.target.value })
+                          }
+                          className="input text-sm"
+                        />
+                        {v.description && (
+                          <p className="text-xs text-gray-500 mt-1">{v.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 预览区域 */}
+                {showPreview && (
+                  <div className="border-t border-gray-200 pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">预览结果</span>
+                      <button
+                        onClick={handleCopyPreview}
+                        className="btn btn-secondary text-xs py-1 px-2"
+                      >
+                        <Copy className="w-3 h-3" />
+                        复制预览
+                      </button>
+                    </div>
+                    <pre className="whitespace-pre-wrap font-mono text-sm bg-gradient-to-br from-green-50 to-blue-50 border border-green-200 p-4 rounded-lg overflow-auto max-h-[300px]">
+                      {getPreviewContent()}
+                    </pre>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -373,41 +487,111 @@ export function PromptDetailPage() {
               </button>
             </div>
             {showVersions && (
-              <div className="p-4 space-y-3 max-h-[400px] overflow-auto">
-                {versions.map((version) => (
-                  <div
-                    key={version.id}
-                    className={`p-3 rounded-lg border ${
-                      version.id === prompt.currentVersionId
-                        ? 'border-primary-200 bg-primary-50'
-                        : 'border-gray-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-gray-900">{version.version}</span>
-                      {version.id === prompt.currentVersionId ? (
-                        <span className="text-xs text-primary-600">当前版本</span>
-                      ) : (
-                        <button
-                          onClick={() => handleRollback(version.id)}
-                          className="text-xs text-gray-500 hover:text-primary-600 flex items-center gap-1"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          回滚
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500">{version.changelog || '无更新说明'}</p>
-                    <div className="text-xs text-gray-400 mt-1">
-                      {version.creator?.name} · {new Date(version.createdAt).toLocaleDateString()}
-                    </div>
+              <div className="p-4 space-y-3">
+                {/* 对比模式切换 */}
+                {versions.length >= 2 && (
+                  <div className="flex items-center justify-between mb-2">
+                    <button
+                      onClick={() => {
+                        setCompareMode(!compareMode);
+                        setSelectedVersions([]);
+                      }}
+                      className={`text-xs flex items-center gap-1 px-2 py-1 rounded ${
+                        compareMode
+                          ? 'bg-primary-100 text-primary-700'
+                          : 'text-gray-500 hover:bg-gray-100'
+                      }`}
+                    >
+                      <GitCompare className="w-3 h-3" />
+                      {compareMode ? '退出对比' : '版本对比'}
+                    </button>
+                    {compareMode && selectedVersions.length === 2 && (
+                      <button
+                        onClick={() => setShowDiff(true)}
+                        className="text-xs bg-primary-600 text-white px-2 py-1 rounded hover:bg-primary-700"
+                      >
+                        查看差异
+                      </button>
+                    )}
                   </div>
-                ))}
+                )}
+                {compareMode && (
+                  <p className="text-xs text-gray-500 mb-2">
+                    选择两个版本进行对比 ({selectedVersions.length}/2)
+                  </p>
+                )}
+
+                <div className="max-h-[350px] overflow-auto space-y-3">
+                  {versions.map((version) => (
+                    <div
+                      key={version.id}
+                      onClick={() => compareMode && handleVersionSelect(version.id)}
+                      className={`p-3 rounded-lg border transition-colors ${
+                        compareMode ? 'cursor-pointer' : ''
+                      } ${
+                        selectedVersions.includes(version.id)
+                          ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200'
+                          : version.id === prompt.currentVersionId
+                          ? 'border-primary-200 bg-primary-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          {compareMode && (
+                            <div
+                              className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                                selectedVersions.includes(version.id)
+                                  ? 'border-primary-500 bg-primary-500'
+                                  : 'border-gray-300'
+                              }`}
+                            >
+                              {selectedVersions.includes(version.id) && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                          )}
+                          <span className="font-medium text-gray-900">{version.version}</span>
+                        </div>
+                        {!compareMode && (
+                          version.id === prompt.currentVersionId ? (
+                            <span className="text-xs text-primary-600">当前版本</span>
+                          ) : (
+                            <button
+                              onClick={() => handleRollback(version.id)}
+                              className="text-xs text-gray-500 hover:text-primary-600 flex items-center gap-1"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              回滚
+                            </button>
+                          )
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500">{version.changelog || '无更新说明'}</p>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {version.creator?.name} · {new Date(version.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* 版本对比弹窗 */}
+      {showDiff && selectedVersions.length === 2 && (() => {
+        const compareData = getCompareVersions();
+        if (!compareData) return null;
+        return (
+          <VersionDiff
+            oldVersion={{ version: compareData.old.version, content: compareData.old.content }}
+            newVersion={{ version: compareData.new.version, content: compareData.new.content }}
+            onClose={() => setShowDiff(false)}
+          />
+        );
+      })()}
     </div>
   );
 }

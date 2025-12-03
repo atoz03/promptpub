@@ -84,11 +84,19 @@ promptsRouter.get('/', async (c) => {
       conditions.push(sql`${prompts.status} != 'archived'`);
     }
 
+    // 全文搜索：标题、描述和正文内容
     if (search) {
+      // 使用子查询搜索提示词正文
       conditions.push(
         or(
           like(prompts.title, `%${search}%`),
-          like(prompts.description, `%${search}%`)
+          like(prompts.description, `%${search}%`),
+          // 搜索当前版本的内容
+          sql`${prompts.id} IN (
+            SELECT ${promptVersions.promptId} FROM ${promptVersions}
+            WHERE ${promptVersions.id} = ${prompts.currentVersionId}
+            AND ${promptVersions.content} LIKE ${'%' + search + '%'}
+          )`
         )!
       );
     }
