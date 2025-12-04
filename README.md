@@ -168,6 +168,16 @@ bun run start
 | 性能 | 慢（实时编译） | 快（已优化） |
 | 适用场景 | 开发调试 | 日常使用、部署 |
 
+### 质量校验命令
+
+在提交代码前，可在本地执行以下脚本来复现 CI 步骤：
+
+1. `bun run lint`：前端 ESLint 检查，覆盖 React Hooks、TypeScript 约束。
+2. `bun run build`（在 `frontend/` 下）：生成生产环境构建并做类型检查。
+3. `bun run db:migrate`：在根目录运行，确保 SQLite 数据库迁移脚本可在新环境中顺利执行（脚本会自动创建 `data/` 目录）。
+
+全部通过后再推送，可显著降低 CI 失败率。
+
 ## 项目结构
 
 ```
@@ -383,7 +393,7 @@ bun run start
 
 当前进度：**95%**（详见 [PROGRESS.md](PROGRESS.md)）
 
-### v1.1.0 已完成（2025年）
+### v1.1.0 已完成
 
 - ✅ Toast 通知系统（替代 alert）
 - ✅ 全文搜索（支持搜索提示词正文内容）

@@ -16,6 +16,25 @@ bun run dev
 
 ---
 
+## 本地 CI 检查
+
+在执行下列功能测试前，可先运行一遍与 GitHub Actions 一致的质量脚本：
+
+```bash
+# 1. 前端 Lint（项目根目录）
+bun run lint
+
+# 2. 前端构建 + 类型检查
+cd frontend && bun run build && cd ..
+
+# 3. 数据库迁移冒烟（自动创建 ./data）
+bun run db:migrate
+```
+
+若以上命令全部通过，再进入功能测试阶段，可减少环境问题导致的误报。
+
+---
+
 ## 测试清单
 
 ### 1. 用户认证测试
