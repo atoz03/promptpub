@@ -1,14 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../api/client';
 import { Plus, Edit, Trash2, Tag } from 'lucide-react';
-
-interface TagItem {
-  id: string;
-  name: string;
-  color: string;
-  usageCount: number;
-}
+import type { TagItem } from '../types/api';
+import { getErrorMessage } from '../utils/error';
 
 const colorOptions = [
   '#6366f1', // 紫色
@@ -36,22 +31,24 @@ export function TagsPage() {
     color: colorOptions[0],
   });
 
-  useEffect(() => {
-    if (currentWorkspaceId) {
-      loadTags();
+  const loadTags = useCallback(async () => {
+    if (!currentWorkspaceId) {
+      return;
     }
-  }, [currentWorkspaceId]);
 
-  const loadTags = async () => {
     try {
-      const data = await api.getTags(currentWorkspaceId!);
+      const data = await api.getTags(currentWorkspaceId);
       setTags(data.tags);
     } catch (error) {
       console.error('Failed to load tags:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentWorkspaceId]);
+
+  useEffect(() => {
+    loadTags();
+  }, [loadTags]);
 
   const openCreateModal = () => {
     setEditingTag(null);
@@ -95,9 +92,9 @@ export function TagsPage() {
 
       setShowModal(false);
       loadTags();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to save tag:', error);
-      alert(error.message || '保存失败');
+      alert(getErrorMessage(error, '保存失败'));
     }
   };
 
@@ -111,9 +108,9 @@ export function TagsPage() {
     try {
       await api.deleteTag(tag.id);
       loadTags();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to delete tag:', error);
-      alert(error.message || '删除失败');
+      alert(getErrorMessage(error, '删除失败'));
     }
   };
 

@@ -1,8 +1,15 @@
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { Database } from 'bun:sqlite';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import * as schema from './schema';
 
 const dbPath = process.env.DATABASE_PATH || './data/promptpub.db';
+const dbDir = dirname(dbPath);
+
+if (dbDir && dbDir !== '.') {
+  mkdirSync(dbDir, { recursive: true });
+}
 
 // 创建 SQLite 数据库连接
 const sqlite = new Database(dbPath, { create: true });

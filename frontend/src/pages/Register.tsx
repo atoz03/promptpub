@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
+import { getErrorMessage } from '../utils/error';
 
 export function RegisterPage() {
   const [name, setName] = useState('');
@@ -28,8 +29,8 @@ export function RegisterPage() {
     try {
       await register(email, password, name);
       navigate('/');
-    } catch (err: any) {
-      setError(err.message || '注册失败');
+    } catch (error) {
+      setError(getErrorMessage(error, '注册失败'));
     }
   };
 

@@ -1,30 +1,33 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { api } from '../api/client';
 import { FileText, FolderTree, Tags, Users, TrendingUp, Clock } from 'lucide-react';
+import type { WorkspaceDetail } from '../types/api';
 
 export function DashboardPage() {
   const { currentWorkspaceId } = useStore();
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<WorkspaceDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (currentWorkspaceId) {
-      loadStats();
+  const loadStats = useCallback(async () => {
+    if (!currentWorkspaceId) {
+      return;
     }
-  }, [currentWorkspaceId]);
 
-  const loadStats = async () => {
     try {
-      const data = await api.getWorkspace(currentWorkspaceId!);
+      const data = await api.getWorkspace(currentWorkspaceId);
       setStats(data);
     } catch (error) {
       console.error('Failed to load stats:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentWorkspaceId]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   if (loading) {
     return (
@@ -117,9 +120,9 @@ export function DashboardPage() {
             </h2>
           </div>
           <div className="p-4">
-            {stats?.members?.length > 0 ? (
+            {stats?.members?.length ? (
               <div className="space-y-3">
-                {stats.members.slice(0, 5).map((member: any) => (
+                {stats.members.slice(0, 5).map((member) => (
                   <div key={member.id} className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-medium text-sm">
                       {member.name?.charAt(0).toUpperCase()}

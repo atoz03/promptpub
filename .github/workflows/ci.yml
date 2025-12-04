@@ -1,0 +1,45 @@
+name: CI 检查
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.2
+          cache: bun
+
+      - name: 安装后端依赖
+        run: bun install --frozen-lockfile
+
+      - name: 安装前端依赖
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+
+      - name: 前端 Lint 检查
+        working-directory: frontend
+        run: bun run lint
+
+      - name: 构建 + 类型检查
+        run: bun run build
+
+      - name: 数据库迁移冒烟测试
+        env:
+          DATABASE_PATH: ./data/ci-check.db
+        run: bun run db:migrate

@@ -1,14 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { api } from '../api/client';
 import { ArrowLeft, Plus, X, Save, Eye } from 'lucide-react';
-
-interface Variable {
-  name: string;
-  description: string;
-  defaultValue: string;
-}
+import type { PromptDetail, PromptVariable, TagItem } from '../types/api';
+import { flattenCategoryTree, type CategoryOption } from '../utils/categories';
+import { parseJson } from '../utils/json';
+import { getErrorMessage } from '../utils/error';
 
 export function PromptEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -18,8 +16,8 @@ export function PromptEditPage() {
 
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [tags, setTags] = useState<any[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [tags, setTags] = useState<TagItem[]>([]);
 
   // 表单数据
   const [title, setTitle] = useState('');
@@ -27,7 +25,7 @@ export function PromptEditPage() {
   const [content, setContent] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [variables, setVariables] = useState<Variable[]>([]);
+  const [variables, setVariables] = useState<PromptVariable[]>([]);
   const [outputExample, setOutputExample] = useState('');
   const [targetModels, setTargetModels] = useState<string[]>([]);
   const [status, setStatus] = useState<'draft' | 'published'>('draft');
@@ -37,41 +35,33 @@ export function PromptEditPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [previewValues, setPreviewValues] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    loadData();
-  }, [currentWorkspaceId, id]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!currentWorkspaceId) return;
 
+    setLoading(true);
     try {
       const [categoriesData, tagsData] = await Promise.all([
         api.getCategories(currentWorkspaceId),
         api.getTags(currentWorkspaceId),
       ]);
 
-      setCategories(flattenCategories(categoriesData.categories));
+      setCategories(flattenCategoryTree(categoriesData.categories));
       setTags(tagsData.tags);
 
       if (id) {
-        const prompt = await api.getPrompt(id);
-        setTitle(prompt.title);
-        setDescription(prompt.description || '');
-        setCategoryId(prompt.categoryId || '');
-        setSelectedTags(prompt.tags?.map((t: any) => t.id) || []);
-        setStatus(prompt.status === 'archived' ? 'draft' : prompt.status);
+        const promptData: PromptDetail = await api.getPrompt(id);
+        setTitle(promptData.title);
+        setDescription(promptData.description || '');
+        setCategoryId(promptData.categoryId || '');
+        setSelectedTags(promptData.tags?.map((tag) => tag.id) || []);
+        setStatus(promptData.status === 'archived' ? 'draft' : promptData.status);
 
-        if (prompt.currentVersion) {
-          setContent(prompt.currentVersion.content);
-          setOutputExample(prompt.currentVersion.outputExample || '');
+        if (promptData.currentVersion) {
+          setContent(promptData.currentVersion.content);
+          setOutputExample(promptData.currentVersion.outputExample || '');
 
-          if (prompt.currentVersion.variables) {
-            setVariables(JSON.parse(prompt.currentVersion.variables));
-          }
-
-          if (prompt.currentVersion.targetModels) {
-            setTargetModels(JSON.parse(prompt.currentVersion.targetModels));
-          }
+          setVariables(parseJson<PromptVariable[]>(promptData.currentVersion.variables, []));
+          setTargetModels(parseJson<string[]>(promptData.currentVersion.targetModels, []));
         }
       }
     } catch (error) {
@@ -79,14 +69,11 @@ export function PromptEditPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentWorkspaceId, id]);
 
-  const flattenCategories = (cats: any[], level = 0): any[] => {
-    return cats.flatMap((cat) => [
-      { ...cat, level },
-      ...(cat.children ? flattenCategories(cat.children, level + 1) : []),
-    ]);
-  };
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,22 +120,24 @@ export function PromptEditPage() {
       }
 
       navigate(`/prompts/${id}`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to save:', error);
-      alert(error.message || '保存失败');
+      alert(getErrorMessage(error, '保存失败'));
     } finally {
       setSaving(false);
     }
   };
 
   const addVariable = () => {
-    setVariables([...variables, { name: '', description: '', defaultValue: '' }]);
+    setVariables((prev) => [...prev, { name: '', description: '', defaultValue: '' }]);
   };
 
-  const updateVariable = (index: number, field: keyof Variable, value: string) => {
-    const newVariables = [...variables];
-    newVariables[index][field] = value;
-    setVariables(newVariables);
+  const updateVariable = (index: number, field: keyof PromptVariable, value: string) => {
+    setVariables((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
   };
 
   const removeVariable = (index: number) => {

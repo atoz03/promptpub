@@ -1,3 +1,16 @@
+import type {
+  CategoriesResponse,
+  LoginResponse,
+  MeResponse,
+  PromptsResponse,
+  PromptDetail,
+  PromptVersionsResponse,
+  RegisterResponse,
+  TagsResponse,
+  WorkspacesResponse,
+  WorkspaceDetail,
+} from '../types/api';
+
 const API_BASE = '/api';
 
 class ApiClient {
@@ -44,22 +57,22 @@ class ApiClient {
       throw new Error('Unauthorized');
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as unknown;
 
     if (!response.ok) {
-      throw new Error(data.error || 'Request failed');
+      const message =
+        data && typeof data === 'object' && 'error' in data && typeof (data as { error?: string }).error === 'string'
+          ? (data as { error?: string }).error!
+          : 'Request failed';
+      throw new Error(message);
     }
 
-    return data;
+    return data as T;
   }
 
   // Auth
   async login(email: string, password: string) {
-    const data = await this.request<{
-      token: string;
-      user: { id: string; email: string; name: string };
-      workspaces: Array<{ id: string; name: string; role: string }>;
-    }>('/auth/login', {
+    const data = await this.request<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
@@ -68,11 +81,7 @@ class ApiClient {
   }
 
   async register(email: string, password: string, name: string) {
-    const data = await this.request<{
-      token: string;
-      user: { id: string; email: string; name: string };
-      workspace: { id: string; name: string };
-    }>('/auth/register', {
+    const data = await this.request<RegisterResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password, name }),
     });
@@ -81,10 +90,7 @@ class ApiClient {
   }
 
   async getMe() {
-    return this.request<{
-      user: { id: string; email: string; name: string; avatar?: string };
-      workspaces: Array<{ id: string; name: string; role: string }>;
-    }>('/auth/me');
+    return this.request<MeResponse>('/auth/me');
   }
 
   logout() {
@@ -93,20 +99,11 @@ class ApiClient {
 
   // Workspaces
   async getWorkspaces() {
-    return this.request<{
-      workspaces: Array<{
-        id: string;
-        name: string;
-        description?: string;
-        role: string;
-        promptCount: number;
-        memberCount: number;
-      }>;
-    }>('/workspaces');
+    return this.request<WorkspacesResponse>('/workspaces');
   }
 
   async getWorkspace(id: string) {
-    return this.request<any>(`/workspaces/${id}`);
+    return this.request<WorkspaceDetail>(`/workspaces/${id}`);
   }
 
   async createWorkspace(name: string, description?: string) {
@@ -132,14 +129,11 @@ class ApiClient {
         searchParams.append(key, String(value));
       }
     });
-    return this.request<{
-      prompts: any[];
-      pagination: { page: number; limit: number; total: number; totalPages: number };
-    }>(`/prompts?${searchParams}`);
+    return this.request<PromptsResponse>(`/prompts?${searchParams}`);
   }
 
   async getPrompt(id: string) {
-    return this.request<any>(`/prompts/${id}`);
+    return this.request<PromptDetail>(`/prompts/${id}`);
   }
 
   async createPrompt(data: {
@@ -172,14 +166,14 @@ class ApiClient {
       changelog?: string;
     }
   ) {
-    return this.request<any>(`/prompts/${id}`, {
+    return this.request<{ message: string; versionId: string }>(`/prompts/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async deletePrompt(id: string) {
-    return this.request<any>(`/prompts/${id}`, {
+    return this.request<{ message: string }>(`/prompts/${id}`, {
       method: 'DELETE',
     });
   }
@@ -192,25 +186,25 @@ class ApiClient {
   }
 
   async recordPromptUse(id: string, source: 'web' | 'api' | 'plugin' = 'web') {
-    return this.request<any>(`/prompts/${id}/use`, {
+    return this.request<{ message: string }>(`/prompts/${id}/use`, {
       method: 'POST',
       body: JSON.stringify({ source }),
     });
   }
 
   async getPromptVersions(id: string) {
-    return this.request<{ versions: any[] }>(`/prompts/${id}/versions`);
+    return this.request<PromptVersionsResponse>(`/prompts/${id}/versions`);
   }
 
   async rollbackPrompt(promptId: string, versionId: string) {
-    return this.request<any>(`/prompts/${promptId}/rollback/${versionId}`, {
+    return this.request<{ message: string; versionId: string }>(`/prompts/${promptId}/rollback/${versionId}`, {
       method: 'POST',
     });
   }
 
   // Categories
   async getCategories(workspaceId: string) {
-    return this.request<{ categories: any[] }>(`/categories?workspaceId=${workspaceId}`);
+    return this.request<CategoriesResponse>(`/categories?workspaceId=${workspaceId}`);
   }
 
   async createCategory(data: {
@@ -226,14 +220,14 @@ class ApiClient {
   }
 
   async updateCategory(id: string, data: { name?: string; description?: string; parentId?: string | null }) {
-    return this.request<any>(`/categories/${id}`, {
+    return this.request<{ message: string }>(`/categories/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async deleteCategory(id: string, options?: { force?: boolean; targetCategoryId?: string }) {
-    return this.request<any>(`/categories/${id}`, {
+    return this.request<{ message: string }>(`/categories/${id}`, {
       method: 'DELETE',
       body: JSON.stringify(options || {}),
     });
@@ -241,7 +235,7 @@ class ApiClient {
 
   // Tags
   async getTags(workspaceId: string) {
-    return this.request<{ tags: any[] }>(`/tags?workspaceId=${workspaceId}`);
+    return this.request<TagsResponse>(`/tags?workspaceId=${workspaceId}`);
   }
 
   async createTag(data: { workspaceId: string; name: string; color?: string }) {
@@ -252,14 +246,14 @@ class ApiClient {
   }
 
   async updateTag(id: string, data: { name?: string; color?: string }) {
-    return this.request<any>(`/tags/${id}`, {
+    return this.request<{ message: string }>(`/tags/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async deleteTag(id: string) {
-    return this.request<any>(`/tags/${id}`, {
+    return this.request<{ message: string }>(`/tags/${id}`, {
       method: 'DELETE',
     });
   }

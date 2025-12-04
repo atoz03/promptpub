@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import { useToast } from '../components/Toast';
+import { useToast } from '../hooks/useToast';
 import { VersionDiff } from '../components/VersionDiff';
 import {
   ArrowLeft,
@@ -22,13 +22,15 @@ import {
   Eye,
 } from 'lucide-react';
 import { countTokens, estimateCost } from '../utils/tokenCounter';
+import { parseJson } from '../utils/json';
+import type { PromptDetail, PromptVariable, PromptVersion } from '../types/api';
 
 export function PromptDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const [prompt, setPrompt] = useState<any>(null);
-  const [versions, setVersions] = useState<any[]>([]);
+  const [prompt, setPrompt] = useState<PromptDetail | null>(null);
+  const [versions, setVersions] = useState<PromptVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [showVersions, setShowVersions] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -41,11 +43,29 @@ export function PromptDetailPage() {
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [showPreview, setShowPreview] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadPrompt();
+  const loadPrompt = useCallback(async () => {
+    if (!id) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const [data, versionsData] = await Promise.all([
+        api.getPrompt(id),
+        api.getPromptVersions(id),
+      ]);
+      setPrompt(data);
+      setVersions(versionsData.versions);
+    } catch (error) {
+      console.error('Failed to load prompt:', error);
+    } finally {
+      setLoading(false);
     }
   }, [id]);
+
+  useEffect(() => {
+    loadPrompt();
+  }, [loadPrompt]);
 
   // 自动计算 token 数量
   useEffect(() => {
@@ -57,26 +77,12 @@ export function PromptDetailPage() {
     }
   }, [prompt?.currentVersion?.content]);
 
-  const loadPrompt = async () => {
-    try {
-      const data = await api.getPrompt(id!);
-      setPrompt(data);
-
-      const versionsData = await api.getPromptVersions(id!);
-      setVersions(versionsData.versions);
-    } catch (error) {
-      console.error('Failed to load prompt:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleCopy = async () => {
-    if (!prompt?.currentVersion?.content) return;
+    if (!prompt?.currentVersion?.content || !id) return;
 
     try {
       await navigator.clipboard.writeText(prompt.currentVersion.content);
-      await api.recordPromptUse(id!, 'web');
+      await api.recordPromptUse(id, 'web');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       showToast('已复制到剪贴板', 'success');
@@ -87,10 +93,11 @@ export function PromptDetailPage() {
   };
 
   const handleDelete = async () => {
+    if (!id) return;
     if (!confirm('确定要删除这个提示词吗？此操作不可撤销。')) return;
 
     try {
-      await api.deletePrompt(id!);
+      await api.deletePrompt(id);
       showToast('删除成功', 'success');
       navigate('/prompts');
     } catch (error) {
@@ -100,10 +107,11 @@ export function PromptDetailPage() {
   };
 
   const handleRollback = async (versionId: string) => {
+    if (!id) return;
     if (!confirm('确定要回滚到这个版本吗？')) return;
 
     try {
-      await api.rollbackPrompt(id!, versionId);
+      await api.rollbackPrompt(id, versionId);
       loadPrompt();
       showToast('回滚成功', 'success');
     } catch (error) {
@@ -138,9 +146,8 @@ export function PromptDetailPage() {
   const getPreviewContent = () => {
     if (!currentVersion?.content) return '';
     let content = currentVersion.content;
-    const vars = currentVersion.variables ? JSON.parse(currentVersion.variables) : [];
 
-    vars.forEach((v: any) => {
+    variables.forEach((v) => {
       const value = variableValues[v.name] || v.defaultValue || `{${v.name}}`;
       const regex = new RegExp(`\\{${v.name}\\}`, 'g');
       content = content.replace(regex, value);
@@ -151,12 +158,13 @@ export function PromptDetailPage() {
 
   // 复制预览内容
   const handleCopyPreview = async () => {
+    if (!id) return;
     const previewContent = getPreviewContent();
     try {
       await navigator.clipboard.writeText(previewContent);
-      await api.recordPromptUse(id!, 'web');
+      await api.recordPromptUse(id, 'web');
       showToast('预览内容已复制', 'success');
-    } catch (error) {
+    } catch {
       showToast('复制失败', 'error');
     }
   };
@@ -167,8 +175,9 @@ export function PromptDetailPage() {
   };
 
   const handleExport = async (format: 'json' | 'markdown') => {
+    if (!id || !prompt) return;
     try {
-      const response = await api.exportPrompt(id!, format);
+      const response = await api.exportPrompt(id, format);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -218,12 +227,12 @@ export function PromptDetailPage() {
     archived: '已归档',
   };
 
-  const currentVersion = prompt.currentVersion;
-  const variables = currentVersion?.variables
-    ? JSON.parse(currentVersion.variables)
+  const currentVersion = prompt.currentVersion ?? null;
+  const variables: PromptVariable[] = currentVersion
+    ? parseJson<PromptVariable[]>(currentVersion.variables, [])
     : [];
-  const targetModels = currentVersion?.targetModels
-    ? JSON.parse(currentVersion.targetModels)
+  const targetModels: string[] = currentVersion
+    ? parseJson<string[]>(currentVersion.targetModels, [])
     : [];
 
   return (
@@ -299,7 +308,7 @@ export function PromptDetailPage() {
             {prompt.tags?.length > 0 && (
               <div className="flex items-center gap-2 mt-4">
                 <Tag className="w-4 h-4 text-gray-400" />
-                {prompt.tags.map((tag: any) => (
+                {prompt.tags.map((tag) => (
                   <span
                     key={tag.id}
                     className="px-2 py-0.5 text-xs rounded-full"
@@ -385,25 +394,25 @@ export function PromptDetailPage() {
               <div className="p-4 space-y-4">
                 {/* 变量输入区域 */}
                 <div className="grid gap-3">
-                  {variables.map((v: any, i: number) => (
-                    <div key={i} className="flex items-start gap-3">
+                  {variables.map((variable, index) => (
+                    <div key={variable.name || index} className="flex items-start gap-3">
                       <div className="w-28 flex-shrink-0">
                         <span className="font-mono text-sm text-primary-600 bg-primary-50 px-2 py-1 rounded">
-                          {`{${v.name}}`}
+                          {`{${variable.name}}`}
                         </span>
                       </div>
                       <div className="flex-1">
                         <input
                           type="text"
-                          placeholder={v.defaultValue || `输入 ${v.name} 的值...`}
-                          value={variableValues[v.name] || ''}
+                          placeholder={variable.defaultValue || `输入 ${variable.name} 的值...`}
+                          value={variableValues[variable.name] || ''}
                           onChange={(e) =>
-                            setVariableValues({ ...variableValues, [v.name]: e.target.value })
+                            setVariableValues({ ...variableValues, [variable.name]: e.target.value })
                           }
                           className="input text-sm"
                         />
-                        {v.description && (
-                          <p className="text-xs text-gray-500 mt-1">{v.description}</p>
+                        {variable.description && (
+                          <p className="text-xs text-gray-500 mt-1">{variable.description}</p>
                         )}
                       </div>
                     </div>
@@ -457,7 +466,7 @@ export function PromptDetailPage() {
               </div>
               <div className="p-4">
                 <div className="flex flex-wrap gap-2">
-                  {targetModels.map((model: string) => (
+                  {targetModels.map((model) => (
                     <span
                       key={model}
                       className="px-2 py-1 text-sm bg-gray-100 text-gray-700 rounded"

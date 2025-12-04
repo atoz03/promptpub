@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
+import { getErrorMessage } from '../utils/error';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -16,8 +17,8 @@ export function LoginPage() {
     try {
       await login(email, password);
       navigate('/');
-    } catch (err: any) {
-      setError(err.message || '登录失败');
+    } catch (error) {
+      setError(getErrorMessage(error, '登录失败'));
     }
   };
 

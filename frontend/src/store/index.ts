@@ -6,13 +6,13 @@ interface User {
   id: string;
   email: string;
   name: string;
-  avatar?: string;
+  avatar?: string | null;
 }
 
 interface Workspace {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   role: string;
 }
 

@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../store';
 import { api } from '../api/client';
-import { useToast } from '../components/Toast';
+import { useToast } from '../hooks/useToast';
+import type { CategoryNode, Pagination, PromptListItem, TagItem } from '../types/api';
 import {
   Plus,
   Search,
@@ -16,34 +17,22 @@ import {
   BarChart3,
 } from 'lucide-react';
 
-interface Prompt {
-  id: string;
-  title: string;
-  description: string;
-  status: 'draft' | 'published' | 'archived';
-  categoryId: string | null;
-  usageCount: number;
-  lastUsedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  tags: Array<{ id: string; name: string; color: string }>;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  children?: Category[];
-}
+const INITIAL_PAGINATION: Pagination = {
+  page: 1,
+  limit: 20,
+  total: 0,
+  totalPages: 0,
+};
 
 export function PromptListPage() {
   const { currentWorkspaceId } = useStore();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [tags, setTags] = useState<any[]>([]);
+  const [prompts, setPrompts] = useState<PromptListItem[]>([]);
+  const [categories, setCategories] = useState<CategoryNode[]>([]);
+  const [tags, setTags] = useState<TagItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 0 });
+  const [pagination, setPagination] = useState<Pagination>(INITIAL_PAGINATION);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const search = searchParams.get('search') || '';
@@ -51,13 +40,15 @@ export function PromptListPage() {
   const status = searchParams.get('status') || '';
   const tagId = searchParams.get('tag') || '';
 
-  useEffect(() => {
-    if (currentWorkspaceId) {
-      loadData();
+  const loadData = useCallback(async () => {
+    if (!currentWorkspaceId) {
+      setPrompts([]);
+      setCategories([]);
+      setTags([]);
+      setPagination({ ...INITIAL_PAGINATION });
+      return;
     }
-  }, [currentWorkspaceId, search, categoryId, status, tagId]);
 
-  const loadData = async () => {
     setLoading(true);
     try {
       const [promptsData, categoriesData, tagsData] = await Promise.all([
@@ -81,7 +72,11 @@ export function PromptListPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentWorkspaceId, search, categoryId, status, tagId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSearch = (value: string) => {
     const params = new URLSearchParams(searchParams);
@@ -93,7 +88,7 @@ export function PromptListPage() {
     setSearchParams(params);
   };
 
-  const handleCopyPrompt = async (prompt: Prompt) => {
+  const handleCopyPrompt = async (prompt: PromptListItem) => {
     try {
       // 获取完整的提示词内容
       const fullPrompt = await api.getPrompt(prompt.id);
@@ -144,7 +139,7 @@ export function PromptListPage() {
   };
 
   // 递归渲染分类树
-  const renderCategoryOptions = (cats: Category[], level = 0): React.ReactNode[] => {
+  const renderCategoryOptions = (cats: CategoryNode[], level = 0): React.ReactNode[] => {
     return cats.flatMap((cat) => [
       <option key={cat.id} value={cat.id}>
         {'　'.repeat(level)}{cat.name}

@@ -1,0 +1,50 @@
+name: 自动发布制品
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.2
+          cache: bun
+
+      - name: 安装后端依赖
+        run: bun install --frozen-lockfile
+
+      - name: 安装前端依赖
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+
+      - name: 构建前端与静态资源
+        run: bun run build
+
+      - name: 打包前端产物
+        run: |
+          tar -czf frontend-dist.tar.gz -C frontend dist
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend-dist.tar.gz
+          retention-days: 7
+
+      - name: 创建 Release 并附带制品
+        uses: softprops/action-gh-release@v2
+        with:
+          files: frontend-dist.tar.gz
+          generate_release_notes: true

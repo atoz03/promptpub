@@ -1,48 +1,44 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../api/client';
 import { Plus, Edit, Trash2, ChevronRight, ChevronDown, FolderTree } from 'lucide-react';
-
-interface Category {
-  id: string;
-  parentId: string | null;
-  name: string;
-  description: string | null;
-  promptCount: number;
-  children?: Category[];
-}
+import type { CategoryNode } from '../types/api';
+import { flattenCategoryTree } from '../utils/categories';
+import { getErrorMessage } from '../utils/error';
 
 export function CategoriesPage() {
   const { currentWorkspaceId } = useStore();
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   // 弹窗状态
   const [showModal, setShowModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingCategory, setEditingCategory] = useState<CategoryNode | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     parentId: '',
   });
 
-  useEffect(() => {
-    if (currentWorkspaceId) {
-      loadCategories();
+  const loadCategories = useCallback(async () => {
+    if (!currentWorkspaceId) {
+      return;
     }
-  }, [currentWorkspaceId]);
 
-  const loadCategories = async () => {
     try {
-      const data = await api.getCategories(currentWorkspaceId!);
+      const data = await api.getCategories(currentWorkspaceId);
       setCategories(data.categories);
     } catch (error) {
       console.error('Failed to load categories:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentWorkspaceId]);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   const toggleExpand = (id: string) => {
     const newExpanded = new Set(expandedIds);
@@ -64,7 +60,7 @@ export function CategoriesPage() {
     setShowModal(true);
   };
 
-  const openEditModal = (category: Category) => {
+  const openEditModal = (category: CategoryNode) => {
     setEditingCategory(category);
     setFormData({
       name: category.name,
@@ -100,13 +96,13 @@ export function CategoriesPage() {
 
       setShowModal(false);
       loadCategories();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to save category:', error);
-      alert(error.message || '保存失败');
+      alert(getErrorMessage(error, '保存失败'));
     }
   };
 
-  const handleDelete = async (category: Category) => {
+  const handleDelete = async (category: CategoryNode) => {
     const message = category.promptCount > 0
       ? `该分类下有 ${category.promptCount} 个提示词，确定要删除吗？`
       : '确定要删除这个分类吗？';
@@ -116,24 +112,14 @@ export function CategoriesPage() {
     try {
       await api.deleteCategory(category.id, { force: true });
       loadCategories();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to delete category:', error);
-      alert(error.message || '删除失败');
+      alert(getErrorMessage(error, '删除失败'));
     }
   };
 
   // 扁平化分类列表（用于下拉选择）
-  const flattenCategories = (cats: Category[], level = 0, excludeId?: string): any[] => {
-    return cats.flatMap((cat) => {
-      if (cat.id === excludeId) return [];
-      return [
-        { ...cat, level },
-        ...(cat.children ? flattenCategories(cat.children, level + 1, excludeId) : []),
-      ];
-    });
-  };
-
-  const renderCategory = (category: Category, level = 0) => {
+  const renderCategory = (category: CategoryNode, level = 0) => {
     const hasChildren = category.children && category.children.length > 0;
     const isExpanded = expandedIds.has(category.id);
 
@@ -290,7 +276,7 @@ export function CategoriesPage() {
                   className="input"
                 >
                   <option value="">无（顶级分类）</option>
-                  {flattenCategories(categories, 0, editingCategory?.id).map((cat) => (
+                  {flattenCategoryTree(categories, 0, editingCategory?.id).map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {'　'.repeat(cat.level)}{cat.name}
                     </option>
